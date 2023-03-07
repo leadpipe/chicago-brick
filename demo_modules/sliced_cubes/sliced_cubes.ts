@@ -1,6 +1,6 @@
 /*
- * `sliced_cubes` shows a field of rotating cubes breaking apart into tetrahedra
- * and octohedra, and then reforming as cubes.
+ * `sliced_cubes` shows a field of rotating cubes breaking apart to form
+ * different shapes, and then reforming as cubes.
  *
  * We witness a subset of an infinite array of cubes arranged in a checkerboard,
  * with one cube occupying every other monitor, breaking apart and reforming in
@@ -63,9 +63,13 @@ export declare interface PieceSetState {
   an: number;
 
   /**
-   * Like `ac`, but for wedge B.
+   * Like `ac`, but for wedge B.  Wedge B is the one normally attached to a
+   * corner piece, and wedge A is the one that's part of the central
+   * tetrahedron, so the meaning of `bc` for wedge B is slightly different than
+   * that of `ac` for wedge A.
    */
   bc: number;
+
   /**
    * Like `an`, but for wedge B.
    */
@@ -87,14 +91,44 @@ export type SlicedCubesState = [
  * The stages that the module goes through.
  *
  * Stage 1: The pieces are arranged as a cube at node 0 (even-parity node).
- * Stage 2: Node 0 is a tetrahedron, node 1 is an octohedron.
- * Stage 3: Node 0 is an octohedron, node 1 is a tetrahedron.
+ * Stage 2: Node 0 is a tetrahedron, node 1 is half an octohedron.
+ * Stage 3: Node 1 is a full (almost) octohedron.
  * Stage 4: Node 1 is a cube.
+ * Stage 5: Node 0 is a hollow cube, node 1 is a semiregular dodecahedron.
+ * Stage 6: Node 0 is a partially filled cube, node 1 is a hollow dodecahedron.
+ * Stage 7: Node 0 is a cube (same as stage 1).
+ *
+ * Transitions:
+ *
+ * 1-2: the A wedge pieces at the center of the cube remain to form a
+ * tetrahedron as the B+C pieces (the full corner pieces) fly to the odd-parity
+ * nodes to form half an octohedron.
+ *
+ * 2-3: the A pieces also fly to the odd nodes to fill in the remaining faces of
+ * the octohedron.
+ *
+ * 3-4: the A and B+C pieces push out from the octohedron, the A pieces form a
+ * tetrahedron, and the B+C pieces fill in the remainder of the cube.
+ *
+ * 4-5: the C pieces separate from the cube and return to the even nodes to form
+ * a hollow cube.  The A and B pieces remain, forming a semi-regular
+ * dodecahedron.
+ *
+ * 5-6: the A pieces push out of the dodecahedron and return to the even nodes
+ * to form the centers of the cubes.  The B pieces reform their dodecahedron,
+ * now hollow.
+ *
+ * 6-7: the B pieces follow to fill in the remainder of the cubes.
  */
-export const STAGE1 = { co: 0, cn: 0, ac: 2, an: 0, bc: 0, bn: 0 };
-export const STAGE2 = { co: 1, cn: 3, ac: 2, an: 1, bc: 0, bn: 0 };
-export const STAGE3 = { co: 1, cn: 0, ac: 0, an: 1, bc: 2, bn: 0 };
-export const STAGE4 = { co: 0, cn: 3, ac: 0, an: 1, bc: 2, bn: 1 };
+export const STAGE1 = { co: 0, cn: 0, ac: 0, an: 0, bc: 2, bn: 0 };
+export const STAGE2 = { co: 1, cn: 3, ac: 0, an: 0, bc: 2, bn: 1 };
+export const STAGE3 = { co: 1, cn: 3, ac: 2, an: 1, bc: 2, bn: 1 };
+export const STAGE4 = { co: 0, cn: 3, ac: 0, an: 1, bc: 0, bn: 1 };
+export const STAGE5 = { co: 0, cn: 0, ac: 0, an: 1, bc: 0, bn: 1 };
+export const STAGE6 = { co: 0, cn: 0, ac: 0, an: 0, bc: 0, bn: 1 };
 
 /** What we call the state sent from server to clients. */
 export const STATE_NAME = 'sliced_cubes';
+
+/** The server also seeds the clients with the colors to use. */
+export const COLORS_STATE_NAME = 'colors';

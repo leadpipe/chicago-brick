@@ -1,12 +1,22 @@
+import shuffle from 'https://deno.land/x/shuffle@v1.0.1/mod.ts';
 import { Server } from '../../server/modules/module_interface.ts';
 import { ModuleState } from '../../server/network/state_manager.ts';
-import { STAGE1, STAGE2, STAGE3, STAGE4, STATE_NAME } from './sliced_cubes.ts';
+import {
+  COLORS_STATE_NAME,
+  STAGE1,
+  STAGE2,
+  STAGE3,
+  STAGE4,
+  STAGE5,
+  STAGE6,
+  STATE_NAME,
+} from './sliced_cubes.ts';
 
 const stage1 = { ...STAGE1 };
 const stage1a = { ...STAGE1, cn: 1 };
 const stage1b = { ...STAGE1, co: 1, cn: 2 };
 const stage2 = { ...STAGE2 };
-const stage2a = { ...STAGE2, ac: 1 };
+const stage2a = { ...STAGE2, ac: 0.99 };
 const stage2b = { ...STAGE2, cn: 2, ac: 0 };
 const stage2c = { ...STAGE2, cn: 1, ac: 0 };
 const stage2d = { ...STAGE2, cn: 0, ac: 0, bc: 1 };
@@ -14,7 +24,10 @@ const stage3 = { ...STAGE3 };
 const stage3a = { ...STAGE3, cn: 1 };
 const stage3b = { ...STAGE3, co: 0, cn: 2 };
 const stage4 = { ...STAGE4 };
+const stage5 = { ...STAGE5 };
+const stage6 = { ...STAGE6 };
 const schedule = [
+  /*
   { dur: 5, state: [stage1, stage1, stage1, stage1] },
   { dur: 2, state: [stage1a, stage1a, stage1a, stage1a] },
   { dur: 1, state: [stage1, stage1, stage1, stage1] },
@@ -27,33 +40,27 @@ const schedule = [
   { dur: 2, state: [stage2, stage2, stage1b, stage1] },
   { dur: 1, state: [stage2, stage2, stage2, stage1a] },
   { dur: 1, state: [stage2, stage2, stage2, stage1b] },
+//*/
   { dur: 1, state: [stage2, stage2, stage2, stage2] },
   { dur: 2, state: [stage2, stage2, stage2, stage2] },
+//*/
   { dur: 2, state: [stage2a, stage2a, stage2a, stage2a] },
+/*/
   { dur: 1, state: [stage2b, stage2b, stage2b, stage2b] },
   { dur: 2, state: [stage2c, stage2c, stage2c, stage2c] },
   { dur: 1, state: [stage2d, stage2d, stage2d, stage2d] },
+/*
   { dur: 1, state: [stage3, stage3, stage3, stage3] },
   { dur: 4, state: [stage3, stage3, stage3, stage3] },
+/*
   { dur: 2, state: [stage3a, stage3a, stage3a, stage3a] },
   { dur: 2, state: [stage3b, stage3b, stage3b, stage3b] },
   { dur: 1, state: [stage4, stage4, stage4, stage4] },
   { dur: 2, state: [stage4, stage4, stage4, stage4] },
-  { dur: 1, state: [stage3b, stage4, stage3b, stage4] },
-  { dur: 1, state: [stage3a, stage3b, stage3a, stage3b] },
-  { dur: 1, state: [stage3, stage3a, stage3, stage3a] },
-  { dur: 1, state: [stage3, stage3, stage3, stage3] },
-  { dur: 2, state: [stage3, stage3, stage3, stage3] },
-  { dur: 1, state: [stage2d, stage2d, stage3, stage3] },
-  { dur: 1, state: [stage2c, stage2c, stage2d, stage2d] },
-  { dur: 1, state: [stage2b, stage2b, stage2c, stage2c] },
-  { dur: 1, state: [stage2a, stage2a, stage2b, stage2b] },
-  { dur: 1, state: [stage2, stage2, stage2a, stage2a] },
-  { dur: 1, state: [stage2, stage2, stage2, stage2] },
-  { dur: 2, state: [stage2, stage2, stage2, stage2] },
-  { dur: 1, state: [stage1b, stage1b, stage1b, stage1b] },
-  { dur: 1, state: [stage1a, stage1a, stage1a, stage1a] },
+  { dur: 2, state: [stage5, stage5, stage5, stage5] },
+  { dur: 2, state: [stage6, stage6, stage6, stage6] },
   { dur: 1, state: [stage1, stage1, stage1, stage1] },
+//*/
 ];
 
 /**
@@ -66,6 +73,11 @@ export function load(state: ModuleState) {
 
     override willBeShownSoon() {
       state.store(STATE_NAME, 0, schedule[0].state);
+      state.store(
+        COLORS_STATE_NAME,
+        0,
+        shuffle([0x4285f4, 0xea4335, 0xfbbc05, 0x34a853]),
+      );
       return Promise.resolve();
     }
 

@@ -7,7 +7,12 @@ import {
 } from '../../client/network/state_manager.ts';
 import { Three, ThreeJsSurface } from '../../client/surface/threejs_surface.ts';
 import { Polygon } from '../../lib/math/polygon2d.ts';
-import { PieceSetState, SlicedCubesState, STATE_NAME } from './sliced_cubes.ts';
+import {
+  COLORS_STATE_NAME,
+  PieceSetState,
+  SlicedCubesState,
+  STATE_NAME,
+} from './sliced_cubes.ts';
 
 /**
  * Loads the SlicedCubes client.
@@ -17,12 +22,16 @@ export function load(state: ModuleState, wallGeometry: Polygon) {
     private sharedState!: SharedState;
     private slices!: CubeSlices;
 
-    override willBeShownSoon(container: HTMLElement): Promise<void> {
+    override async willBeShownSoon(container: HTMLElement) {
       const surface = new ThreeJsSurface(container, wallGeometry, {
         antialias: true,
       });
       this.surface = surface;
-      this.slices = new CubeSlices(surface);
+      const colorState = state.define(COLORS_STATE_NAME, [
+        CurrentValueInterpolator,
+      ]);
+      await colorState.waitForData();
+      this.slices = new CubeSlices(surface, colorState.get(0) as number[]);
       this.sharedState = state.define(STATE_NAME, [
         {
           co: NumberLerpInterpolator,
@@ -33,7 +42,6 @@ export function load(state: ModuleState, wallGeometry: Polygon) {
           bn: CurrentValueInterpolator,
         },
       ]);
-      return Promise.resolve();
     }
 
     override draw(time: number): void {
@@ -68,10 +76,10 @@ class CubeSlices {
   readonly rotators: Three.Object3D[] = [];
   readonly ships: ShipObject[];
 
-  constructor(readonly surface: ThreeJsSurface) {
+  constructor(readonly surface: ThreeJsSurface, colors: readonly number[]) {
     surface.camera.position.z = 20;
     const grid = (this.grid = establishGrid(surface));
-    this.sets = makeSets(grid);
+    this.sets = makeSets(grid, colors);
 
     surface.scene.add(new Three.AmbientLight(0x808080));
     surface.renderer.setClearColor(0xdddddd, 1);
@@ -138,8 +146,20 @@ class CubeSlices {
     const nodes = [node0, node1];
     const corner = set.c as CornerObject;
 
-    orientTetraWedge(set.a as WrappedObject, nodes[state.an], state.ac, corner);
-    orientTetraWedge(set.b as WrappedObject, nodes[state.bn], state.bc, corner);
+    orientTetraWedge(
+      set.a as WrappedObject,
+      nodes[state.an],
+      state.ac,
+      corner,
+      true,
+    );
+    orientTetraWedge(
+      set.b as WrappedObject,
+      nodes[state.bn],
+      state.bc,
+      corner,
+      false,
+    );
 
     const pos = 3 * state.co;
     corner.$inner.position.set(pos, pos, pos);
@@ -249,14 +269,14 @@ function establishGrid(surface: ThreeJsSurface): Grid {
   const numRows = Math.round(surface.wallRect.h / bounds.h);
   const numCols = Math.round(surface.wallRect.w / bounds.w);
   if (numRows < 2 || numCols < 2) {
-    throw new Error(
-      'sliced_cubes module requires at least 2 rows and 2 columns',
+    console.log(
+      'sliced_cubes module works best with at least 2 rows and 2 columns',
     );
   }
 
   // Calculate the dimensions of the checkerboard rectangles.
-  const dx = (-2 * origin.x) / (numCols - 1);
-  const dy = (2 * origin.y) / (numRows - 1);
+  const dx = (-2 * origin.x) / Math.max(numCols - 1, 1);
+  const dy = (2 * origin.y) / Math.max(numRows - 1, 1);
 
   // Calculate the max diameter of one of these polyhedra.
   const diameter = Math.min(dx * 0.6, dy * 0.6);
@@ -295,45 +315,56 @@ function establishGrid(surface: ThreeJsSurface): Grid {
   };
 }
 
+const MATERIAL_PARAMS = {
+  emissive: 0x333333,
+  flatShading: true,
+  side: Three.DoubleSide,
+};
+
 // Constructs the sets appropriate for this location, and returns them in an
 // array.
-function makeSets(grid: Grid) {
+function makeSets(grid: Grid, colors: readonly number[]) {
   const cornerWedgeGeometry = makeCornerWedgeGeometry();
   const tetraWedgeGeometry = makeTetraWedgeGeometry();
   const cornerMaterial = new Three.MeshPhongMaterial({
-    color: 0x777777,
-    emissive: 0x333333,
-    flatShading: true,
-    side: Three.DoubleSide,
+    ...MATERIAL_PARAMS,
+    color: 0, //0x777777,
+    wireframe: true,
   });
   let tetraColors;
   const r = grid.row;
   const c = grid.col;
   if (grid.parity === 0) {
-    const myColor = getTetraColor(r, c);
+    const myColor = getTetraColor(r, c, colors);
     tetraColors = [myColor, myColor, myColor, myColor];
   } else {
     tetraColors = [
-      getTetraColor(r, c + 1),
-      getTetraColor(r + 1, c),
-      getTetraColor(r, c - 1),
-      getTetraColor(r - 1, c),
+      getTetraColor(r, c + 1, colors),
+      getTetraColor(r + 1, c, colors),
+      getTetraColor(r, c - 1, colors),
+      getTetraColor(r - 1, c, colors),
     ];
   }
   const sets = tetraColors.map((color) => {
-    const tetraMaterial = new Three.MeshPhongMaterial({
+    const tetraMaterialA = new Three.MeshPhongMaterial({
+      ...MATERIAL_PARAMS,
       color,
-      specular: color,
-      emissive: 0x333333,
-      flatShading: true,
+      specular: 0xe0e0e0,
       shininess: 50,
-      side: Three.DoubleSide,
+    });
+    const tetraMaterialB = new Three.MeshPhongMaterial({
+      ...MATERIAL_PARAMS,
+      color,
+      specular: 0x080808,
+      shininess: 12,
+      wireframe: true,
     });
     return makeSet(
       cornerWedgeGeometry,
       cornerMaterial,
       tetraWedgeGeometry,
-      tetraMaterial,
+      tetraMaterialA,
+      tetraMaterialB,
     );
   }) as PieceSets;
 
@@ -447,11 +478,12 @@ function makeSet(
   cornerWedgeGeometry: Three.BufferGeometry,
   cornerMaterial: Three.Material,
   tetraWedgeGeometry: Three.BufferGeometry,
-  tetraMaterial: Three.Material,
+  tetraMaterialA: Three.Material,
+  tetraMaterialB: Three.Material,
 ): PieceSet {
   const corner = makeCornerPiece(cornerWedgeGeometry, cornerMaterial);
-  const tw1 = new Three.Mesh(tetraWedgeGeometry, tetraMaterial);
-  const tw2 = new Three.Mesh(tetraWedgeGeometry, tetraMaterial);
+  const tw1 = new Three.Mesh(tetraWedgeGeometry, tetraMaterialA);
+  const tw2 = new Three.Mesh(tetraWedgeGeometry, tetraMaterialB);
   return { c: corner, a: tw1, b: tw2 };
 }
 
@@ -496,10 +528,14 @@ function cubifySets(sets: PieceSets): PieceSets {
   return sets;
 }
 
-function getTetraColor(row: number, col: number): number {
+function getTetraColor(
+  row: number,
+  col: number,
+  colors: readonly number[],
+): number {
   // Ensures odd-parity nodes are surrounded by 4 different colors.
   const index = (((3 * row + col + 1) >> 1) + 2) & 3;
-  return [0x4285f4, 0xea4335, 0xfbbc05, 0x34a853][index];
+  return colors[index];
 }
 
 const WEDGE_AXIS = new Three.Vector3(1, 0, -1).normalize();
@@ -510,6 +546,7 @@ function orientTetraWedge(
   node: Three.Object3D,
   cornerOrientation: number,
   corner: WrappedObject,
+  isPieceA: boolean,
 ) {
   const innerWedge = wedge.$inner;
   const middleWedge = wedge.$middle;
